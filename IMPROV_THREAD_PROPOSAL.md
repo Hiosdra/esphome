@@ -219,6 +219,8 @@ RPC Response UUID:  00467768-6228-2272-4663-277478268004
 Capabilities UUID:  00467768-6228-2272-4663-277478268005
 ```
 
+**Note on UUID Generation**: These UUIDs are derived from the improv-wifi UUIDs but modified to create a unique namespace for Thread. The base UUID follows Bluetooth SIG's 128-bit UUID format. These should be coordinated with the improv protocol maintainers to avoid conflicts and ensure proper registration. The final UUIDs may be assigned by the Improv protocol specification once Thread support is standardized.
+
 **Service Data Format** (8 bytes):
 ```
 Byte 0-1: Protocol ID (0x54 0x48 = "TH")
@@ -318,7 +320,7 @@ The improv-thread components need to integrate with the OpenThread component dif
 2. **No Scanning**: Thread networks aren't typically scanned like WiFi (mesh discovery is different)
 3. **IPv6 Only**: Must handle IPv6 addresses instead of IPv4
 4. **Join Process**: Thread joining is async and may take longer than WiFi
-5. **State Persistence**: Thread credentials should be stored differently
+5. **State Persistence**: Thread credentials should be stored differently - Thread uses a binary operational dataset (~60-100 bytes) instead of separate SSID and password strings. The dataset should be stored as a single blob in NVS (non-volatile storage) using ESPHome's preferences API, similar to how WiFi stores credentials but with a different key namespace
 
 **Required OpenThread API Additions**:
 
@@ -373,9 +375,9 @@ void set_on_join_callback(std::function<void(JoinState)> callback);
 The improv-thread components should only be available on platforms that support Thread:
 
 **Supported Platforms**:
-- ESP32-C6
-- ESP32-H2
-- ESP32-C5 (when available)
+- ESP32-C6 (tested and available)
+- ESP32-H2 (tested and available)
+- ESP32-C5 (preliminary support in ESP-IDF, limited hardware availability as of late 2024)
 
 **Platform Detection** (in Python config):
 ```python
@@ -506,13 +508,13 @@ CONFIG_SCHEMA = cv.All(
 ### Performance
 
 1. **Join Time**: Thread joining can take 10-60 seconds (longer than WiFi)
-   - Adjust default timeout to 60s (vs 30s for WiFi)
+   - Adjust default timeout to 60s (compared to improv-wifi's timeout which is configurable with a default of 90s in the WiFi component, but improv uses a 30s RPC-level timeout)
 2. **Memory**: Thread datasets are ~60-100 bytes
 3. **BLE MTU**: Ensure dataset fits in BLE packet size (max 512 bytes)
 
 ### Compatibility
 
-1. **Platform Support**: ESP32-C6, ESP32-H2, ESP32-C5 only
+1. **Platform Support**: ESP32-C6, ESP32-H2 (fully supported); ESP32-C5 (preliminary support, may need updates as hardware becomes available)
 2. **IDF Version**: Requires ESP-IDF 5.1+ for Thread support
 3. **Conflicts**: Cannot use with WiFi simultaneously (radio conflict)
 
@@ -628,8 +630,8 @@ For improv-thread to be useful, client applications need to be created or update
 1. **Protocol Standardization**: Should this be standardized with the improv-wifi project?
    - Recommendation: Yes, coordinate with improv-wifi maintainers
 2. **Thread Network Scanning**: Is there a Thread equivalent to WiFi scanning?
-   - Answer: Thread discovery is different - devices discover via mesh, not active scanning
-   - Recommendation: Remove GET_THREAD_NETWORKS command or make it informational only
+   - Answer: Thread discovery is different - devices discover via mesh, not active scanning. Thread devices can detect existing networks during the joining process, but there's no equivalent to WiFi's active scan before connection.
+   - Recommendation: The GET_THREAD_NETWORKS command (listed in the protocol spec) should be implemented as optional/informational only, returning networks discovered during recent join attempts. However, it should NOT be relied upon for network selection like WiFi scanning. Initial implementation can omit this command entirely and add it in a future version if Thread Border Router discovery mechanisms become standardized
 3. **Multiple Datasets**: Should device support multiple Thread network profiles?
    - Recommendation: Start with single dataset, add multi-network later if needed
 4. **Commissioner Integration**: Should this integrate with Thread Commissioner protocol?
