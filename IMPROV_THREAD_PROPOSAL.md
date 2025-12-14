@@ -210,13 +210,16 @@ The protocol should support two modes:
    - Mesh Local Prefix (IPv6 prefix)
 
 **BLE Characteristic UUIDs** (New namespace for Thread):
+
+⚠️ **WARNING**: The UUIDs below are PLACEHOLDER VALUES for illustration only. DO NOT use these in production code without official assignment from the Improv protocol maintainers.
+
 ```
-Service UUID:       00467768-6228-2272-4663-277478268000  (Thread variant)
-Status UUID:        00467768-6228-2272-4663-277478268001
-Error UUID:         00467768-6228-2272-4663-277478268002
-RPC Command UUID:   00467768-6228-2272-4663-277478268003
-RPC Response UUID:  00467768-6228-2272-4663-277478268004
-Capabilities UUID:  00467768-6228-2272-4663-277478268005
+Service UUID:       00467768-6228-2272-4663-277478268000  (Thread variant - PLACEHOLDER)
+Status UUID:        00467768-6228-2272-4663-277478268001  (PLACEHOLDER)
+Error UUID:         00467768-6228-2272-4663-277478268002  (PLACEHOLDER)
+RPC Command UUID:   00467768-6228-2272-4663-277478268003  (PLACEHOLDER)
+RPC Response UUID:  00467768-6228-2272-4663-277478268004  (PLACEHOLDER)
+Capabilities UUID:  00467768-6228-2272-4663-277478268005  (PLACEHOLDER)
 ```
 
 **Note on UUID Generation**: These UUIDs follow the Bluetooth SIG's 128-bit UUID format. The proposed UUIDs shown above are placeholders for illustration purposes. For actual implementation:
@@ -340,8 +343,12 @@ Thread credentials require different storage than WiFi:
 - Store dataset as single binary blob under namespace "thread_dataset"
 - Key-value pair: `{"dataset", <binary_data>}`
 - Separate from WiFi credentials which use namespace "wifi"
-- Example (pseudocode): `global_preferences->save("thread_dataset", "dataset", dataset_bytes.data(), dataset_bytes.size())`
-  - Note: Verify exact API syntax against `esphome/core/preferences.h` during implementation
+- **Pseudocode example** (DO NOT copy directly - verify against actual API):
+  ```cpp
+  // This is illustrative pseudocode only
+  global_preferences->save("thread_dataset", "dataset", dataset_bytes.data(), dataset_bytes.size());
+  ```
+  - IMPORTANT: Verify exact API syntax against `esphome/core/preferences.h` during implementation
 
 **Factory Reset**:
 - Clear Thread dataset when factory reset triggered
@@ -401,9 +408,9 @@ void set_on_join_callback(std::function<void(JoinState)> callback);
 The improv-thread components should only be available on platforms that support Thread:
 
 **Supported Platforms**:
-- ESP32-C6 (Thread 1.3 certified, production-ready)
-- ESP32-H2 (Thread 1.3 certified, production-ready)
-- ESP32-C5 (Thread support in development; check current ESP-IDF and ESPHome platform support status)
+- ESP32-C6 (Thread 1.3 certified, production-ready, **recommended**)
+- ESP32-H2 (Thread 1.3 certified, production-ready, **recommended**)
+- ESP32-C5 (Thread support exists in ESP-IDF but should be verified for production readiness; check current ESPHome platform documentation and test thoroughly before using in production)
 
 **Platform Detection** (in Python config):
 ```python
@@ -534,15 +541,16 @@ CONFIG_SCHEMA = cv.All(
 ### Performance
 
 1. **Join Time**: Thread joining can take 10-60 seconds (longer than WiFi)
-   - WiFi component uses configurable timeout with 90s default (see `esphome/components/wifi/__init__.py`, `DEFAULT_WIFI_TIMEOUT`)
-   - ESP32 Improv uses 30s wifi-connect-timeout (see `esphome/components/esp32_improv/esp32_improv_component.cpp:346`)
+   - WiFi component uses configurable timeout with 90s default (see WiFi component configuration for `DEFAULT_WIFI_TIMEOUT`)
+   - ESP32 Improv uses 30s wifi-connect-timeout (search codebase for "wifi-connect-timeout" - locations may change)
    - Recommendation: Use 60s for Thread join timeout to accommodate slower mesh joining
+   - Note: Verify current timeout values in the codebase during implementation as they may evolve
 2. **Memory**: Thread datasets are ~60-100 bytes
 3. **BLE MTU**: Ensure dataset fits in BLE packet size (max 512 bytes)
 
 ### Compatibility
 
-1. **Platform Support**: ESP32-C6, ESP32-H2 (fully supported and tested); ESP32-C5 (support depends on ESP-IDF and ESPHome platform maturity)
+1. **Platform Support**: ESP32-C6, ESP32-H2 (fully supported, production-ready, recommended for deployment); ESP32-C5 (basic support exists but requires thorough testing before production use)
 2. **IDF Version**: Requires ESP-IDF 5.1+ for Thread support
 3. **Conflicts**: Cannot use with WiFi simultaneously (radio conflict)
 
