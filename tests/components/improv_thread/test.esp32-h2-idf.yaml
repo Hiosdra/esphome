@@ -1,1 +1,6 @@
 <<: !include common.yaml
+
+esp32:
+  board: esp32-h2-devkitm-1
+  framework:
+    type: esp-idf
