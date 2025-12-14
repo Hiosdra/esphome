@@ -49,7 +49,8 @@ std::string ImprovBase::get_formatted_next_url_() {
 
 #ifdef USE_OPENTHREAD
 std::string ImprovBase::format_ipv6_address(const otIp6Address &addr) {
-  char addr_str[40];
+  // Buffer size of 64 provides ample space for full IPv6 address
+  char addr_str[64];
   snprintf(addr_str, sizeof(addr_str), "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
            addr.mFields.m8[0], addr.mFields.m8[1], addr.mFields.m8[2], addr.mFields.m8[3], addr.mFields.m8[4],
            addr.mFields.m8[5], addr.mFields.m8[6], addr.mFields.m8[7], addr.mFields.m8[8], addr.mFields.m8[9],

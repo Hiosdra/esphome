@@ -345,10 +345,10 @@ void ESP32ImprovThreadComponent::process_incoming_data_() {
 
         // Convert hex string to bytes
         std::vector<uint8_t> dataset_bytes;
-        for (size_t i = 0; i < command.ssid.length(); i += 2) {
+        for (size_t i = 0; i + 1 < command.ssid.length(); i += 2) {
           std::string byte_string = command.ssid.substr(i, 2);
-          // Validate hex characters
-          if (!std::isxdigit(byte_string[0]) || !std::isxdigit(byte_string[1])) {
+          // Validate we got 2 characters and both are hex
+          if (byte_string.length() != 2 || !std::isxdigit(byte_string[0]) || !std::isxdigit(byte_string[1])) {
             ESP_LOGW(TAG, "Invalid hex character in dataset");
             this->set_error_(improv::ERROR_INVALID_RPC);
             this->incoming_data_.clear();
@@ -455,9 +455,11 @@ void ESP32ImprovThreadComponent::check_thread_connection_() {
     if (omr_addr.has_value()) {
       std::string addr_str = improv_base::ImprovBase::format_ipv6_address(*omr_addr);
 #ifdef USE_WEBSERVER
-      char url_buffer[64];
-      snprintf(url_buffer, sizeof(url_buffer), "http://[%s]:%d", addr_str.c_str(), USE_WEBSERVER_PORT);
-      url_strings[url_count++] = url_buffer;
+      // Use string concatenation for dynamic URL construction
+      std::string webserver_url = "http://[" + addr_str + "]:" + to_string(USE_WEBSERVER_PORT);
+      if (url_count < 3) {
+        url_strings[url_count++] = webserver_url;
+      }
 #endif
     }
 

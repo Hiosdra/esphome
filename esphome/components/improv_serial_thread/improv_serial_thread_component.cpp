@@ -244,10 +244,10 @@ bool ImprovSerialThreadComponent::parse_improv_payload_(improv::ImprovCommand &c
 
       // Convert hex string to bytes
       std::vector<uint8_t> dataset_bytes;
-      for (size_t i = 0; i < command.ssid.length(); i += 2) {
+      for (size_t i = 0; i + 1 < command.ssid.length(); i += 2) {
         std::string byte_string = command.ssid.substr(i, 2);
-        // Validate hex characters
-        if (!std::isxdigit(byte_string[0]) || !std::isxdigit(byte_string[1])) {
+        // Validate we got 2 characters and both are hex
+        if (byte_string.length() != 2 || !std::isxdigit(byte_string[0]) || !std::isxdigit(byte_string[1])) {
           ESP_LOGW(TAG, "Invalid hex character in dataset");
           this->set_error_(improv::ERROR_INVALID_RPC);
           return false;

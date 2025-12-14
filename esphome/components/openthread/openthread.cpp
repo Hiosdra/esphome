@@ -333,9 +333,12 @@ bool OpenThreadComponent::set_dataset_params(const std::string &network_name, ui
     ESP_LOGE(TAG, "Network name too long: %zu chars (max %d)", network_name.length(), OT_NETWORK_NAME_MAX_SIZE);
     return false;
   }
-  size_t name_len = std::min(network_name.length(), sizeof(dataset.mNetworkName.m8) - 1);
+  size_t max_name_len = sizeof(dataset.mNetworkName.m8) - 1;
+  size_t name_len = std::min(network_name.length(), max_name_len);
   memcpy(dataset.mNetworkName.m8, network_name.c_str(), name_len);
-  dataset.mNetworkName.m8[name_len] = '\0';  // Ensure null-termination
+  if (name_len < sizeof(dataset.mNetworkName.m8)) {
+    dataset.mNetworkName.m8[name_len] = '\0';  // Ensure null-termination
+  }
   dataset.mComponents.mIsNetworkNamePresent = true;
 
   // Set PAN ID
