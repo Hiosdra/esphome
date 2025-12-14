@@ -8,8 +8,10 @@
 
 #ifdef USE_ESP32
 
+#include <cstring>
 #include <openthread/dataset.h>
 #include <openthread/instance.h>
+#include <openthread/ip6.h>
 #include <openthread/thread.h>
 
 namespace esphome {
@@ -351,21 +353,28 @@ void ImprovThreadComponent::process_incoming_data_() {
         
         // Apply the dataset to OpenThread
         if (openthread::global_openthread_component != nullptr) {
-          auto lock = openthread::InstanceLock::acquire();
-          otInstance *instance = lock.get_instance();
+          auto lock_opt = openthread::InstanceLock::try_acquire(100);
+          if (!lock_opt) {
+            ESP_LOGE(TAG, "Failed to acquire OpenThread lock");
+            this->set_error_(improv::ERROR_UNABLE_TO_CONNECT);
+            this->incoming_data_.clear();
+            return;
+          }
           
-          otOperationalDataset dataset;
-          otError error = otDatasetParseTlvs(instance, this->thread_dataset_.data(), 
-                                            this->thread_dataset_.size(), &dataset);
+          otInstance *instance = lock_opt->get_instance();
           
-          if (error != OT_ERROR_NONE) {
-            ESP_LOGE(TAG, "Failed to parse Thread dataset: %d", error);
+          otOperationalDatasetTlvs dataset_tlvs;
+          if (this->thread_dataset_.size() > sizeof(dataset_tlvs.mTlvs)) {
+            ESP_LOGE(TAG, "Thread dataset too large: %d bytes", this->thread_dataset_.size());
             this->set_error_(improv::ERROR_INVALID_RPC);
             this->incoming_data_.clear();
             return;
           }
           
-          error = otDatasetSetActive(instance, &dataset);
+          memcpy(dataset_tlvs.mTlvs, this->thread_dataset_.data(), this->thread_dataset_.size());
+          dataset_tlvs.mLength = this->thread_dataset_.size();
+          
+          otError error = otDatasetSetActiveTlvs(instance, &dataset_tlvs);
           if (error != OT_ERROR_NONE) {
             ESP_LOGE(TAG, "Failed to set active Thread dataset: %d", error);
             this->set_error_(improv::ERROR_UNABLE_TO_CONNECT);
