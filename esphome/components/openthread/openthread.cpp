@@ -8,6 +8,7 @@
 #include <freertos/portmacro.h>
 
 #include <openthread/cli.h>
+#include <openthread/dataset.h>
 #include <openthread/instance.h>
 #include <openthread/logging.h>
 #include <openthread/netdata.h>
@@ -274,6 +275,214 @@ void OpenThreadComponent::on_factory_reset(std::function<void()> callback) {
 const char *OpenThreadComponent::get_use_address() const { return this->use_address_; }
 
 void OpenThreadComponent::set_use_address(const char *use_address) { this->use_address_ = use_address; }
+
+// Runtime provisioning API implementations
+bool OpenThreadComponent::set_dataset_tlv(const std::vector<uint8_t> &tlv_data) {
+  auto lock = InstanceLock::try_acquire(100);
+  if (!lock) {
+    ESP_LOGW(TAG, "Failed to acquire OpenThread lock in set_dataset_tlv");
+    return false;
+  }
+
+  otInstance *instance = lock->get_instance();
+  if (instance == nullptr) {
+    ESP_LOGE(TAG, "OpenThread instance is null");
+    return false;
+  }
+
+  otOperationalDatasetTlvs dataset_tlvs;
+  if (tlv_data.size() > sizeof(dataset_tlvs.mTlvs)) {
+    ESP_LOGE(TAG, "Dataset TLV too large: %zu bytes (max %zu)", tlv_data.size(), sizeof(dataset_tlvs.mTlvs));
+    return false;
+  }
+
+  dataset_tlvs.mLength = tlv_data.size();
+  memcpy(dataset_tlvs.mTlvs, tlv_data.data(), tlv_data.size());
+
+  otError error = otDatasetSetActiveTlvs(instance, &dataset_tlvs);
+  if (error != OT_ERROR_NONE) {
+    ESP_LOGE(TAG, "Failed to set active dataset TLVs: %s", otThreadErrorToString(error));
+    return false;
+  }
+
+  this->dataset_configured_ = true;
+  ESP_LOGD(TAG, "Active dataset TLVs set successfully");
+  return true;
+}
+
+bool OpenThreadComponent::set_dataset_params(const std::string &network_name, uint16_t pan_id, uint64_t ext_pan_id,
+                                             const std::vector<uint8_t> &network_key, uint8_t channel,
+                                             const std::vector<uint8_t> &pskc) {
+  auto lock = InstanceLock::try_acquire(100);
+  if (!lock) {
+    ESP_LOGW(TAG, "Failed to acquire OpenThread lock in set_dataset_params");
+    return false;
+  }
+
+  otInstance *instance = lock->get_instance();
+  if (instance == nullptr) {
+    ESP_LOGE(TAG, "OpenThread instance is null");
+    return false;
+  }
+
+  otOperationalDataset dataset;
+  memset(&dataset, 0, sizeof(dataset));
+
+  // Set network name
+  if (network_name.length() > OT_NETWORK_NAME_MAX_SIZE) {
+    ESP_LOGE(TAG, "Network name too long: %zu chars (max %d)", network_name.length(), OT_NETWORK_NAME_MAX_SIZE);
+    return false;
+  }
+  strncpy(dataset.mNetworkName.m8, network_name.c_str(), sizeof(dataset.mNetworkName.m8));
+  dataset.mComponents.mIsNetworkNamePresent = true;
+
+  // Set PAN ID
+  dataset.mPanId = pan_id;
+  dataset.mComponents.mIsPanIdPresent = true;
+
+  // Set Extended PAN ID
+  memcpy(dataset.mExtendedPanId.m8, &ext_pan_id, sizeof(dataset.mExtendedPanId.m8));
+  dataset.mComponents.mIsExtendedPanIdPresent = true;
+
+  // Set Network Key
+  if (network_key.size() != OT_NETWORK_KEY_SIZE) {
+    ESP_LOGE(TAG, "Invalid network key size: %zu bytes (expected %d)", network_key.size(), OT_NETWORK_KEY_SIZE);
+    return false;
+  }
+  memcpy(dataset.mNetworkKey.m8, network_key.data(), OT_NETWORK_KEY_SIZE);
+  dataset.mComponents.mIsNetworkKeyPresent = true;
+
+  // Set Channel
+  dataset.mChannel = channel;
+  dataset.mComponents.mIsChannelPresent = true;
+
+  // Set PSKc (optional)
+  if (!pskc.empty()) {
+    if (pskc.size() != OT_PSKC_MAX_SIZE) {
+      ESP_LOGE(TAG, "Invalid PSKc size: %zu bytes (expected %d)", pskc.size(), OT_PSKC_MAX_SIZE);
+      return false;
+    }
+    memcpy(dataset.mPskc.m8, pskc.data(), OT_PSKC_MAX_SIZE);
+    dataset.mComponents.mIsPskcPresent = true;
+  }
+
+  otError error = otDatasetSetActive(instance, &dataset);
+  if (error != OT_ERROR_NONE) {
+    ESP_LOGE(TAG, "Failed to set active dataset: %s", otThreadErrorToString(error));
+    return false;
+  }
+
+  this->dataset_configured_ = true;
+  ESP_LOGD(TAG, "Active dataset set successfully");
+  return true;
+}
+
+void OpenThreadComponent::clear_dataset() {
+  auto lock = InstanceLock::try_acquire(100);
+  if (!lock) {
+    ESP_LOGW(TAG, "Failed to acquire OpenThread lock in clear_dataset");
+    return;
+  }
+
+  otInstance *instance = lock->get_instance();
+  if (instance == nullptr) {
+    return;
+  }
+
+  otDatasetSetActive(instance, nullptr);
+  this->dataset_configured_ = false;
+  this->join_state_ = JoinState::NOT_JOINED;
+  ESP_LOGD(TAG, "Dataset cleared");
+}
+
+bool OpenThreadComponent::has_dataset() { return this->dataset_configured_; }
+
+bool OpenThreadComponent::save_dataset() {
+  // Dataset persistence is handled automatically by OpenThread's non-volatile storage
+  // This method exists for API compatibility but doesn't need to do anything explicit
+  return this->dataset_configured_;
+}
+
+bool OpenThreadComponent::start_joining() {
+  auto lock = InstanceLock::try_acquire(100);
+  if (!lock) {
+    ESP_LOGW(TAG, "Failed to acquire OpenThread lock in start_joining");
+    return false;
+  }
+
+  otInstance *instance = lock->get_instance();
+  if (instance == nullptr) {
+    ESP_LOGE(TAG, "OpenThread instance is null");
+    return false;
+  }
+
+  if (!this->dataset_configured_) {
+    ESP_LOGE(TAG, "Cannot start joining: no dataset configured");
+    return false;
+  }
+
+  // Enable Thread interface
+  otError error = otIp6SetEnabled(instance, true);
+  if (error != OT_ERROR_NONE && error != OT_ERROR_ALREADY) {
+    ESP_LOGE(TAG, "Failed to enable IPv6: %s", otThreadErrorToString(error));
+    return false;
+  }
+
+  // Start Thread protocol
+  error = otThreadSetEnabled(instance, true);
+  if (error != OT_ERROR_NONE && error != OT_ERROR_ALREADY) {
+    ESP_LOGE(TAG, "Failed to start Thread: %s", otThreadErrorToString(error));
+    return false;
+  }
+
+  this->join_state_ = JoinState::JOINING;
+  if (this->join_callback_) {
+    this->join_callback_(this->join_state_);
+  }
+
+  ESP_LOGD(TAG, "Thread joining started");
+  return true;
+}
+
+OpenThreadComponent::JoinState OpenThreadComponent::get_join_state() {
+  // Update join state based on current Thread role
+  auto lock = InstanceLock::try_acquire(100);
+  if (!lock) {
+    return this->join_state_;
+  }
+
+  otInstance *instance = lock->get_instance();
+  if (instance == nullptr) {
+    return this->join_state_;
+  }
+
+  otDeviceRole role = otThreadGetDeviceRole(instance);
+  
+  if (role >= OT_DEVICE_ROLE_CHILD) {
+    if (this->join_state_ != JoinState::JOINED) {
+      this->join_state_ = JoinState::JOINED;
+      if (this->join_callback_) {
+        this->join_callback_(this->join_state_);
+      }
+    }
+  } else if (role == OT_DEVICE_ROLE_DISABLED || role == OT_DEVICE_ROLE_DETACHED) {
+    if (this->dataset_configured_ && this->join_state_ == JoinState::JOINING) {
+      // Still trying to join
+    } else if (!this->dataset_configured_) {
+      this->join_state_ = JoinState::NOT_JOINED;
+    }
+  }
+
+  return this->join_state_;
+}
+
+bool OpenThreadComponent::is_joined() {
+  return this->get_join_state() == JoinState::JOINED;
+}
+
+void OpenThreadComponent::set_on_join_callback(std::function<void(JoinState)> callback) {
+  this->join_callback_ = std::move(callback);
+}
 
 }  // namespace openthread
 }  // namespace esphome
