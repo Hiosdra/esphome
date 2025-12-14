@@ -1,0 +1,23 @@
+esphome:
+  name: test-improv-serial-thread
+  friendly_name: Test Improv Serial Thread
+
+esp32:
+  board: esp32-c6-devkitc-1
+  variant: esp32c6
+  framework:
+    type: esp-idf
+
+logger:
+
+network:
+  enable_ipv6: true
+
+mdns:
+
+openthread:
+  network_key: 0x00112233445566778899aabbccddeeff
+  channel: 15
+  pan_id: 0x1234
+
+improv_serial_thread:
