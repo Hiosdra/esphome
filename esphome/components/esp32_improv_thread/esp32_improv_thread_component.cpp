@@ -335,10 +335,25 @@ void ESP32ImprovThreadComponent::process_incoming_data_() {
           return;
         }
 
+        // Validate hex string format
+        if (command.ssid.length() % 2 != 0) {
+          ESP_LOGW(TAG, "Invalid hex string length (must be even)");
+          this->set_error_(improv::ERROR_INVALID_RPC);
+          this->incoming_data_.clear();
+          return;
+        }
+
         // Convert hex string to bytes
         std::vector<uint8_t> dataset_bytes;
         for (size_t i = 0; i < command.ssid.length(); i += 2) {
           std::string byte_string = command.ssid.substr(i, 2);
+          // Validate hex characters
+          if (!std::isxdigit(byte_string[0]) || !std::isxdigit(byte_string[1])) {
+            ESP_LOGW(TAG, "Invalid hex character in dataset");
+            this->set_error_(improv::ERROR_INVALID_RPC);
+            this->incoming_data_.clear();
+            return;
+          }
           uint8_t byte = (uint8_t) strtol(byte_string.c_str(), nullptr, 16);
           dataset_bytes.push_back(byte);
         }
@@ -438,15 +453,10 @@ void ESP32ImprovThreadComponent::check_thread_connection_() {
     // Add IPv6 address if available
     auto omr_addr = openthread::global_openthread_component->get_omr_address();
     if (omr_addr.has_value()) {
-      char addr_str[40];
-      snprintf(addr_str, sizeof(addr_str), "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
-               omr_addr->mFields.m8[0], omr_addr->mFields.m8[1], omr_addr->mFields.m8[2], omr_addr->mFields.m8[3],
-               omr_addr->mFields.m8[4], omr_addr->mFields.m8[5], omr_addr->mFields.m8[6], omr_addr->mFields.m8[7],
-               omr_addr->mFields.m8[8], omr_addr->mFields.m8[9], omr_addr->mFields.m8[10], omr_addr->mFields.m8[11],
-               omr_addr->mFields.m8[12], omr_addr->mFields.m8[13], omr_addr->mFields.m8[14], omr_addr->mFields.m8[15]);
+      std::string addr_str = improv_base::ImprovBase::format_ipv6_address(*omr_addr);
 #ifdef USE_WEBSERVER
       char url_buffer[64];
-      snprintf(url_buffer, sizeof(url_buffer), "http://[%s]:%d", addr_str, USE_WEBSERVER_PORT);
+      snprintf(url_buffer, sizeof(url_buffer), "http://[%s]:%d", addr_str.c_str(), USE_WEBSERVER_PORT);
       url_strings[url_count++] = url_buffer;
 #endif
     }

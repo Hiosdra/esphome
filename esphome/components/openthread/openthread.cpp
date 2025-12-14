@@ -333,15 +333,19 @@ bool OpenThreadComponent::set_dataset_params(const std::string &network_name, ui
     ESP_LOGE(TAG, "Network name too long: %zu chars (max %d)", network_name.length(), OT_NETWORK_NAME_MAX_SIZE);
     return false;
   }
-  strncpy(dataset.mNetworkName.m8, network_name.c_str(), sizeof(dataset.mNetworkName.m8));
+  size_t name_len = std::min(network_name.length(), sizeof(dataset.mNetworkName.m8) - 1);
+  memcpy(dataset.mNetworkName.m8, network_name.c_str(), name_len);
+  dataset.mNetworkName.m8[name_len] = '\0';  // Ensure null-termination
   dataset.mComponents.mIsNetworkNamePresent = true;
 
   // Set PAN ID
   dataset.mPanId = pan_id;
   dataset.mComponents.mIsPanIdPresent = true;
 
-  // Set Extended PAN ID
-  memcpy(dataset.mExtendedPanId.m8, &ext_pan_id, sizeof(dataset.mExtendedPanId.m8));
+  // Set Extended PAN ID (network byte order - big-endian)
+  for (int i = 0; i < 8; i++) {
+    dataset.mExtendedPanId.m8[i] = (ext_pan_id >> (56 - i * 8)) & 0xFF;
+  }
   dataset.mComponents.mIsExtendedPanIdPresent = true;
 
   // Set Network Key

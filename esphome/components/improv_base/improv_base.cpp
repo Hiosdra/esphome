@@ -47,5 +47,17 @@ std::string ImprovBase::get_formatted_next_url_() {
 }
 #endif
 
+#ifdef USE_OPENTHREAD
+std::string ImprovBase::format_ipv6_address(const otIp6Address &addr) {
+  char addr_str[40];
+  snprintf(addr_str, sizeof(addr_str), "%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x:%02x%02x",
+           addr.mFields.m8[0], addr.mFields.m8[1], addr.mFields.m8[2], addr.mFields.m8[3], addr.mFields.m8[4],
+           addr.mFields.m8[5], addr.mFields.m8[6], addr.mFields.m8[7], addr.mFields.m8[8], addr.mFields.m8[9],
+           addr.mFields.m8[10], addr.mFields.m8[11], addr.mFields.m8[12], addr.mFields.m8[13], addr.mFields.m8[14],
+           addr.mFields.m8[15]);
+  return std::string(addr_str);
+}
+#endif
+
 }  // namespace improv_base
 }  // namespace esphome
