@@ -340,7 +340,8 @@ Thread credentials require different storage than WiFi:
 - Store dataset as single binary blob under namespace "thread_dataset"
 - Key-value pair: `{"dataset", <binary_data>}`
 - Separate from WiFi credentials which use namespace "wifi"
-- Example: `global_preferences->save("thread_dataset", "dataset", dataset_bytes.data(), dataset_bytes.size())`
+- Example (pseudocode): `global_preferences->save("thread_dataset", "dataset", dataset_bytes.data(), dataset_bytes.size())`
+  - Note: Verify exact API syntax against `esphome/core/preferences.h` during implementation
 
 **Factory Reset**:
 - Clear Thread dataset when factory reset triggered
@@ -400,9 +401,9 @@ void set_on_join_callback(std::function<void(JoinState)> callback);
 The improv-thread components should only be available on platforms that support Thread:
 
 **Supported Platforms**:
-- ESP32-C6 (fully supported with Thread 1.3 certified hardware)
-- ESP32-H2 (fully supported with Thread 1.3 certified hardware)
-- ESP32-C5 (preliminary support in ESP-IDF; production availability and certification pending)
+- ESP32-C6 (Thread 1.3 certified, production-ready)
+- ESP32-H2 (Thread 1.3 certified, production-ready)
+- ESP32-C5 (Thread support in development; check current ESP-IDF and ESPHome platform support status)
 
 **Platform Detection** (in Python config):
 ```python
@@ -533,15 +534,15 @@ CONFIG_SCHEMA = cv.All(
 ### Performance
 
 1. **Join Time**: Thread joining can take 10-60 seconds (longer than WiFi)
-   - WiFi component uses configurable timeout with 90s default
-   - ESP32 Improv uses 30s wifi-connect-timeout in the component code
+   - WiFi component uses configurable timeout with 90s default (see `esphome/components/wifi/__init__.py`, `DEFAULT_WIFI_TIMEOUT`)
+   - ESP32 Improv uses 30s wifi-connect-timeout (see `esphome/components/esp32_improv/esp32_improv_component.cpp:346`)
    - Recommendation: Use 60s for Thread join timeout to accommodate slower mesh joining
 2. **Memory**: Thread datasets are ~60-100 bytes
 3. **BLE MTU**: Ensure dataset fits in BLE packet size (max 512 bytes)
 
 ### Compatibility
 
-1. **Platform Support**: ESP32-C6, ESP32-H2 (fully supported); ESP32-C5 (preliminary support, may need updates as hardware becomes available)
+1. **Platform Support**: ESP32-C6, ESP32-H2 (fully supported and tested); ESP32-C5 (support depends on ESP-IDF and ESPHome platform maturity)
 2. **IDF Version**: Requires ESP-IDF 5.1+ for Thread support
 3. **Conflicts**: Cannot use with WiFi simultaneously (radio conflict)
 
