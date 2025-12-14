@@ -151,7 +151,6 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_POLL_PERIOD): cv.positive_time_period_milliseconds,
         }
     ).extend(_CONNECTION_SCHEMA),
-    cv.has_exactly_one_key(CONF_NETWORK_KEY, CONF_TLV),
     cv.only_with_esp_idf,
     only_on_variant(supported=[VARIANT_ESP32C5, VARIANT_ESP32C6, VARIANT_ESP32H2]),
     _validate,
@@ -159,13 +158,30 @@ CONFIG_SCHEMA = cv.All(
 )
 
 
-def _final_validate(_):
+def _final_validate(config):
     full_config = fv.full_config.get()
     network_config = full_config.get("network", {})
     if not network_config.get(CONF_ENABLE_IPV6, False):
         raise cv.Invalid(
             "OpenThread requires IPv6 to be enabled in the network component. "
             "Please set `enable_ipv6: true` in the `network` configuration."
+        )
+    
+    # Check if credentials are provided or if improv_thread is being used
+    has_network_key = CONF_NETWORK_KEY in config
+    has_tlv = CONF_TLV in config
+    has_improv_thread = "improv_thread" in full_config
+    
+    if not has_network_key and not has_tlv and not has_improv_thread:
+        raise cv.Invalid(
+            "OpenThread requires either 'network_key' or 'tlv' to be set, "
+            "unless 'improv_thread' component is being used for BLE provisioning."
+        )
+    
+    if has_network_key and has_tlv:
+        raise cv.Invalid(
+            "OpenThread cannot have both 'network_key' and 'tlv' set. "
+            "Please use only one of them."
         )
 
 

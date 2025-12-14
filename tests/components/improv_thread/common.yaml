@@ -6,7 +6,6 @@ network:
   enable_ipv6: true
 
 openthread:
-  network_key: 0x00112233445566778899aabbccddeeff
 
 binary_sensor:
   - platform: gpio
