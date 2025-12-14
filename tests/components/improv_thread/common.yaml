@@ -1,0 +1,24 @@
+esphome:
+  name: improv-thread-test
+  friendly_name: Improv Thread Test
+
+network:
+  enable_ipv6: true
+
+openthread:
+
+binary_sensor:
+  - platform: gpio
+    pin: 0
+    id: io0_button
+
+output:
+  - platform: gpio
+    pin: 2
+    id: built_in_led
+
+improv_thread:
+  authorizer: io0_button
+  authorized_duration: 1min
+  status_indicator: built_in_led
+  next_url: "https://example.com/setup?device={{device_name}}&version={{esphome_version}}"
