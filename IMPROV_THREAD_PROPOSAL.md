@@ -171,8 +171,8 @@ Based on the Improv protocol structure, the Thread variant would need:
   - Output: Current state + URLs if provisioned
 - `GET_DEVICE_INFO` (0x03): Get device information
   - Output: Device name, version, capabilities
-- `GET_THREAD_NETWORKS` (0x04): Scan for Thread networks (if supported)
-  - Output: List of discovered Thread networks with metadata
+
+**Note**: A `GET_THREAD_NETWORKS` command analogous to WiFi scanning is NOT included in the initial specification because Thread network discovery works differently (mesh-based discovery vs active scanning). This may be added in a future version if standardized Thread Border Router discovery mechanisms emerge.
 
 **States** (reuse existing):
 - `STATE_STOPPED` (0x00): Service not running
@@ -219,7 +219,11 @@ RPC Response UUID:  00467768-6228-2272-4663-277478268004
 Capabilities UUID:  00467768-6228-2272-4663-277478268005
 ```
 
-**Note on UUID Generation**: These UUIDs are derived from the improv-wifi UUIDs but modified to create a unique namespace for Thread. The base UUID follows Bluetooth SIG's 128-bit UUID format. These should be coordinated with the improv protocol maintainers to avoid conflicts and ensure proper registration. The final UUIDs may be assigned by the Improv protocol specification once Thread support is standardized.
+**Note on UUID Generation**: These UUIDs follow the Bluetooth SIG's 128-bit UUID format. The proposed UUIDs shown above are placeholders for illustration purposes. For actual implementation:
+- **Coordinate with Improv Protocol Maintainers**: The official UUIDs should be assigned by the improv-wifi project to maintain protocol consistency
+- **Allocation Method**: Typically use a different base UUID or increment the service UUID's least significant bytes to create a new service family
+- **Registration**: Once agreed upon, these UUIDs should be documented in the official Improv protocol specification
+- **Alternative**: Could use vendor-specific UUIDs initially and migrate to official Improv UUIDs later
 
 **Service Data Format** (8 bytes):
 ```
@@ -320,7 +324,28 @@ The improv-thread components need to integrate with the OpenThread component dif
 2. **No Scanning**: Thread networks aren't typically scanned like WiFi (mesh discovery is different)
 3. **IPv6 Only**: Must handle IPv6 addresses instead of IPv4
 4. **Join Process**: Thread joining is async and may take longer than WiFi
-5. **State Persistence**: Thread credentials should be stored differently - Thread uses a binary operational dataset (~60-100 bytes) instead of separate SSID and password strings. The dataset should be stored as a single blob in NVS (non-volatile storage) using ESPHome's preferences API, similar to how WiFi stores credentials but with a different key namespace
+5. **State Persistence**: See dedicated section below
+
+#### Dataset Persistence Implementation
+
+Thread credentials require different storage than WiFi:
+
+**Storage Requirements**:
+- Thread operational dataset is a binary blob (~60-100 bytes)
+- Contains: PAN ID, Extended PAN ID, Network Key, Channel, Network Name, PSKC, and other parameters
+- Must survive reboots and factory resets (with appropriate clear operations)
+
+**Implementation Approach**:
+- Use ESPHome's `preferences` API (wraps ESP-IDF NVS or equivalent)
+- Store dataset as single binary blob under namespace "thread_dataset"
+- Key-value pair: `{"dataset", <binary_data>}`
+- Separate from WiFi credentials which use namespace "wifi"
+- Example: `global_preferences->save("thread_dataset", "dataset", dataset_bytes.data(), dataset_bytes.size())`
+
+**Factory Reset**:
+- Clear Thread dataset when factory reset triggered
+- Should be cleared before WiFi credentials in factory reset sequence
+- Use `global_preferences->remove("thread_dataset", "dataset")`
 
 **Required OpenThread API Additions**:
 
@@ -375,9 +400,9 @@ void set_on_join_callback(std::function<void(JoinState)> callback);
 The improv-thread components should only be available on platforms that support Thread:
 
 **Supported Platforms**:
-- ESP32-C6 (tested and available)
-- ESP32-H2 (tested and available)
-- ESP32-C5 (preliminary support in ESP-IDF, limited hardware availability as of late 2024)
+- ESP32-C6 (fully supported with Thread 1.3 certified hardware)
+- ESP32-H2 (fully supported with Thread 1.3 certified hardware)
+- ESP32-C5 (preliminary support in ESP-IDF; production availability and certification pending)
 
 **Platform Detection** (in Python config):
 ```python
@@ -508,7 +533,9 @@ CONFIG_SCHEMA = cv.All(
 ### Performance
 
 1. **Join Time**: Thread joining can take 10-60 seconds (longer than WiFi)
-   - Adjust default timeout to 60s (compared to improv-wifi's timeout which is configurable with a default of 90s in the WiFi component, but improv uses a 30s RPC-level timeout)
+   - WiFi component uses configurable timeout with 90s default
+   - ESP32 Improv uses 30s wifi-connect-timeout in the component code
+   - Recommendation: Use 60s for Thread join timeout to accommodate slower mesh joining
 2. **Memory**: Thread datasets are ~60-100 bytes
 3. **BLE MTU**: Ensure dataset fits in BLE packet size (max 512 bytes)
 
@@ -630,8 +657,8 @@ For improv-thread to be useful, client applications need to be created or update
 1. **Protocol Standardization**: Should this be standardized with the improv-wifi project?
    - Recommendation: Yes, coordinate with improv-wifi maintainers
 2. **Thread Network Scanning**: Is there a Thread equivalent to WiFi scanning?
-   - Answer: Thread discovery is different - devices discover via mesh, not active scanning. Thread devices can detect existing networks during the joining process, but there's no equivalent to WiFi's active scan before connection.
-   - Recommendation: The GET_THREAD_NETWORKS command (listed in the protocol spec) should be implemented as optional/informational only, returning networks discovered during recent join attempts. However, it should NOT be relied upon for network selection like WiFi scanning. Initial implementation can omit this command entirely and add it in a future version if Thread Border Router discovery mechanisms become standardized
+   - Answer: Thread discovery is different - devices discover via mesh during joining, not via active scanning. Unlike WiFi where devices scan beacons before connecting, Thread devices join a network using a pre-shared dataset and discover the mesh topology after joining.
+   - Recommendation: Do NOT include a GET_THREAD_NETWORKS command in the initial protocol specification (it has been removed from the RPC commands section above). Thread Border Router discovery is a separate mechanism that doesn't fit the scan-and-select paradigm of WiFi. This may be revisited in future versions if standardized discovery mechanisms emerge
 3. **Multiple Datasets**: Should device support multiple Thread network profiles?
    - Recommendation: Start with single dataset, add multi-network later if needed
 4. **Commissioner Integration**: Should this integrate with Thread Commissioner protocol?
