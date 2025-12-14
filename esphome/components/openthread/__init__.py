@@ -158,7 +158,7 @@ CONFIG_SCHEMA = cv.All(
 )
 
 
-def _final_validate(config):
+def _final_validate(config: ConfigType) -> None:
     full_config = fv.full_config.get()
     network_config = full_config.get("network", {})
     if not network_config.get(CONF_ENABLE_IPV6, False):
@@ -166,18 +166,18 @@ def _final_validate(config):
             "OpenThread requires IPv6 to be enabled in the network component. "
             "Please set `enable_ipv6: true` in the `network` configuration."
         )
-    
+
     # Check if credentials are provided or if improv_thread is being used
     has_network_key = CONF_NETWORK_KEY in config
     has_tlv = CONF_TLV in config
     has_improv_thread = "improv_thread" in full_config
-    
+
     if not has_network_key and not has_tlv and not has_improv_thread:
         raise cv.Invalid(
             "OpenThread requires either 'network_key' or 'tlv' to be set, "
             "unless 'improv_thread' component is being used for BLE provisioning."
         )
-    
+
     if has_network_key and has_tlv:
         raise cv.Invalid(
             "OpenThread cannot have both 'network_key' and 'tlv' set. "
