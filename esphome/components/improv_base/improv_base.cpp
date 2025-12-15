@@ -71,8 +71,8 @@ bool ImprovBase::parse_hex_string_to_bytes(const std::string &hex_string, std::v
     return false;
   }
 
-  // Convert hex string to bytes
-  for (size_t i = 0; i + 1 < hex_string.length(); i += 2) {
+  // Convert hex string to bytes (length already validated as even)
+  for (size_t i = 0; i < hex_string.length(); i += 2) {
     std::string byte_string = hex_string.substr(i, 2);
     // Validate we got 2 characters and both are hex
     if (byte_string.length() != 2 || !std::isxdigit(byte_string[0]) || !std::isxdigit(byte_string[1])) {
