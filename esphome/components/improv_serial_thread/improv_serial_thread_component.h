@@ -45,6 +45,8 @@ enum ImprovSerialType : uint8_t {
 
 static const uint16_t IMPROV_SERIAL_TIMEOUT = 100;
 static const uint8_t IMPROV_SERIAL_VERSION = 1;
+// Default Thread join timeout - matches BLE variant default
+static constexpr uint32_t DEFAULT_THREAD_TIMEOUT = 60000;
 
 // Thread-specific RPC command
 static constexpr uint8_t THREAD_SETTINGS = 0x01;

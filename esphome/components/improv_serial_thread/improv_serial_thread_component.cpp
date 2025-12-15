@@ -1,5 +1,7 @@
 #include "improv_serial_thread_component.h"
 #ifdef USE_OPENTHREAD
+#include <cctype>
+
 #include "esphome/core/application.h"
 #include "esphome/core/defines.h"
 #include "esphome/core/hal.h"
@@ -235,25 +237,13 @@ bool ImprovSerialThreadComponent::parse_improv_payload_(improv::ImprovCommand &c
         return false;
       }
 
-      // Validate hex string format
-      if (command.ssid.length() % 2 != 0) {
-        ESP_LOGW(TAG, "Invalid hex string length (must be even)");
+      // Convert hex string to bytes using shared utility
+      std::vector<uint8_t> dataset_bytes;
+      std::string error_msg;
+      if (!improv_base::ImprovBase::parse_hex_string_to_bytes(command.ssid, dataset_bytes, error_msg)) {
+        ESP_LOGW(TAG, "%s", error_msg.c_str());
         this->set_error_(improv::ERROR_INVALID_RPC);
         return false;
-      }
-
-      // Convert hex string to bytes
-      std::vector<uint8_t> dataset_bytes;
-      for (size_t i = 0; i + 1 < command.ssid.length(); i += 2) {
-        std::string byte_string = command.ssid.substr(i, 2);
-        // Validate we got 2 characters and both are hex
-        if (byte_string.length() != 2 || !std::isxdigit(byte_string[0]) || !std::isxdigit(byte_string[1])) {
-          ESP_LOGW(TAG, "Invalid hex character in dataset");
-          this->set_error_(improv::ERROR_INVALID_RPC);
-          return false;
-        }
-        uint8_t byte = (uint8_t) strtol(byte_string.c_str(), nullptr, 16);
-        dataset_bytes.push_back(byte);
       }
 
       this->dataset_tlv_ = dataset_bytes;
@@ -280,7 +270,7 @@ bool ImprovSerialThreadComponent::parse_improv_payload_(improv::ImprovCommand &c
       ESP_LOGD(TAG, "Received Thread dataset, joining network");
 
       auto f = std::bind(&ImprovSerialThreadComponent::on_thread_connect_timeout_, this);
-      this->set_timeout("thread-connect-timeout", 60000, f);
+      this->set_timeout("thread-connect-timeout", DEFAULT_THREAD_TIMEOUT, f);
       return true;
     }
     case improv::GET_CURRENT_STATE:

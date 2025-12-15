@@ -48,6 +48,8 @@ std::string ImprovBase::get_formatted_next_url_() {
 #endif
 
 #ifdef USE_OPENTHREAD
+#include <cctype>
+
 std::string ImprovBase::format_ipv6_address(const otIp6Address &addr) {
   // Buffer size of 64 provides ample space for full IPv6 address
   char addr_str[64];
@@ -57,6 +59,31 @@ std::string ImprovBase::format_ipv6_address(const otIp6Address &addr) {
            addr.mFields.m8[10], addr.mFields.m8[11], addr.mFields.m8[12], addr.mFields.m8[13], addr.mFields.m8[14],
            addr.mFields.m8[15]);
   return std::string(addr_str);
+}
+
+bool ImprovBase::parse_hex_string_to_bytes(const std::string &hex_string, std::vector<uint8_t> &output,
+                                           std::string &error_msg) {
+  output.clear();
+  
+  // Validate hex string format
+  if (hex_string.length() % 2 != 0) {
+    error_msg = "Invalid hex string length (must be even)";
+    return false;
+  }
+
+  // Convert hex string to bytes
+  for (size_t i = 0; i + 1 < hex_string.length(); i += 2) {
+    std::string byte_string = hex_string.substr(i, 2);
+    // Validate we got 2 characters and both are hex
+    if (byte_string.length() != 2 || !std::isxdigit(byte_string[0]) || !std::isxdigit(byte_string[1])) {
+      error_msg = "Invalid hex character in string";
+      return false;
+    }
+    uint8_t byte = (uint8_t) strtol(byte_string.c_str(), nullptr, 16);
+    output.push_back(byte);
+  }
+  
+  return true;
 }
 #endif
 

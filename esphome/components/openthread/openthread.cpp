@@ -359,7 +359,11 @@ bool OpenThreadComponent::set_dataset_params(const std::string &network_name, ui
   memcpy(dataset.mNetworkKey.m8, network_key.data(), OT_NETWORK_KEY_SIZE);
   dataset.mComponents.mIsNetworkKeyPresent = true;
 
-  // Set Channel
+  // Set Channel (Thread channels are typically 11-26 for 2.4 GHz)
+  if (channel < 11 || channel > 26) {
+    ESP_LOGE(TAG, "Invalid channel: %u (valid range is 11-26)", channel);
+    return false;
+  }
   dataset.mChannel = channel;
   dataset.mComponents.mIsChannelPresent = true;
 

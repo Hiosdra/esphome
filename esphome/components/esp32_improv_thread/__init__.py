@@ -12,7 +12,7 @@ import esphome.config_validation as cv
 from esphome.const import CONF_ID, CONF_ON_STATE, CONF_TRIGGER_ID
 
 AUTO_LOAD = ["esp32_ble_server", "improv_base"]
-CODEOWNERS = ["@jesserockz"]
+CODEOWNERS = ["@esphome/core"]
 DEPENDENCIES = ["openthread", "esp32"]
 
 CONF_AUTHORIZED_DURATION = "authorized_duration"

@@ -27,6 +27,10 @@ class ImprovBase {
 #ifdef USE_OPENTHREAD
   // Utility function for formatting IPv6 addresses
   static std::string format_ipv6_address(const otIp6Address &addr);
+  
+  // Utility function for parsing hex strings to bytes
+  static bool parse_hex_string_to_bytes(const std::string &hex_string, std::vector<uint8_t> &output,
+                                        std::string &error_msg);
 #endif
 };
 
