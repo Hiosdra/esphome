@@ -457,8 +457,11 @@ bool OpenThreadComponent::start_joining() {
 
 OpenThreadComponent::JoinState OpenThreadComponent::get_join_state() {
   // Update join state based on current Thread role
+  // Note: ESPHome components run in a single-threaded event loop, so join_state_
+  // modifications are serialized. The InstanceLock protects OpenThread API access.
   auto lock = InstanceLock::try_acquire(100);
   if (!lock) {
+    // If we can't acquire the lock, return cached state
     return this->join_state_;
   }
 
@@ -468,19 +471,25 @@ OpenThreadComponent::JoinState OpenThreadComponent::get_join_state() {
   }
 
   otDeviceRole role = otThreadGetDeviceRole(instance);
+  JoinState new_state = this->join_state_;
   
   if (role >= OT_DEVICE_ROLE_CHILD) {
-    if (this->join_state_ != JoinState::JOINED) {
-      this->join_state_ = JoinState::JOINED;
-      if (this->join_callback_) {
-        this->join_callback_(this->join_state_);
-      }
-    }
+    new_state = JoinState::JOINED;
   } else if (role == OT_DEVICE_ROLE_DISABLED || role == OT_DEVICE_ROLE_DETACHED) {
     if (this->dataset_configured_ && this->join_state_ == JoinState::JOINING) {
-      // Still trying to join
+      // Still trying to join - keep current state
+      new_state = JoinState::JOINING;
     } else if (!this->dataset_configured_) {
-      this->join_state_ = JoinState::NOT_JOINED;
+      new_state = JoinState::NOT_JOINED;
+    }
+  }
+
+  // Update state and invoke callback if changed (while still holding the lock)
+  // This is safe because ESPHome runs in a single-threaded event loop
+  if (new_state != this->join_state_) {
+    this->join_state_ = new_state;
+    if (this->join_callback_) {
+      this->join_callback_(this->join_state_);
     }
   }
 
