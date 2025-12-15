@@ -1,0 +1,1 @@
+<<: !include common-no-auth.yaml

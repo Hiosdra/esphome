@@ -1,0 +1,19 @@
+network:
+  enable_ipv6: true
+
+mdns:
+
+openthread:
+  network_key: 0x00112233445566778899aabbccddeeff
+  channel: 15
+  pan_id: 0x1234
+
+esp32_ble_server:
+
+esp32_improv_thread:
+  authorizer: none
+  thread_timeout: 60s
+  on_provisioned:
+    - logger.log: "Thread network provisioned!"
+  on_provisioning:
+    - logger.log: "Joining Thread network..."
