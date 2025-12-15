@@ -1,0 +1,15 @@
+network:
+  enable_ipv6: true
+
+mdns:
+
+openthread:
+  network_key: 0x00112233445566778899aabbccddeeff
+  channel: 15
+  pan_id: 0x1234
+
+logger:
+  hardware_uart: USB_SERIAL_JTAG
+
+improv_serial_thread:
+  next_url: "https://example.com/thread-setup?device={{device_name}}"

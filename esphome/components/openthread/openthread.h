@@ -40,11 +40,31 @@ class OpenThreadComponent : public Component {
   void set_poll_period(uint32_t poll_period) { this->poll_period = poll_period; }
 #endif
 
+  // Runtime provisioning APIs for improv-thread
+  enum class JoinState { NOT_JOINED, JOINING, JOINED, JOIN_FAILED };
+  
+  bool set_dataset_tlv(const std::vector<uint8_t> &tlv_data);
+  bool set_dataset_params(const std::string &network_name, uint16_t pan_id, uint64_t ext_pan_id,
+                         const std::vector<uint8_t> &network_key, uint8_t channel,
+                         const std::vector<uint8_t> &pskc);
+  void clear_dataset();
+  bool has_dataset();
+  bool save_dataset();
+  bool start_joining();
+  JoinState get_join_state();
+  bool is_joined();
+  void set_on_join_callback(std::function<void(JoinState)> callback);
+
  protected:
   std::optional<otIp6Address> get_omr_address_(InstanceLock &lock);
   bool teardown_started_{false};
   bool teardown_complete_{false};
   std::function<void()> factory_reset_external_callback_;
+  
+  // Runtime provisioning state
+  JoinState join_state_{JoinState::NOT_JOINED};
+  std::function<void(JoinState)> join_callback_;
+  bool dataset_configured_{false};
 
  private:
   // Stores a pointer to a string literal (static storage duration).

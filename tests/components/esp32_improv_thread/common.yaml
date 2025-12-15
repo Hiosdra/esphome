@@ -1,0 +1,41 @@
+network:
+  enable_ipv6: true
+
+mdns:
+
+openthread:
+  network_key: 0x00112233445566778899aabbccddeeff
+  channel: 15
+  pan_id: 0x1234
+
+binary_sensor:
+  - platform: gpio
+    pin: 0
+    id: io0_button
+
+output:
+  - platform: gpio
+    pin: 2
+    id: built_in_led
+
+esp32_ble_server:
+
+esp32_improv_thread:
+  authorizer: io0_button
+  authorized_duration: 1min
+  status_indicator: built_in_led
+  identify_duration: 10s
+  thread_timeout: 60s
+  next_url: "https://example.com/thread-setup?device={{device_name}}"
+  on_provisioned:
+    - logger.log: "Thread network provisioned!"
+  on_provisioning:
+    - logger.log: "Joining Thread network..."
+  on_start:
+    - logger.log: "Improv Thread started"
+  on_stop:
+    - logger.log: "Improv Thread stopped"
+  on_state:
+    - logger.log:
+        format: "State changed: %d, error: %d"
+        args: ['state', 'error']
