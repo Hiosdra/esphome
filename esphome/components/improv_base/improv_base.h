@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include "esphome/core/defines.h"
 
 #ifdef USE_OPENTHREAD
